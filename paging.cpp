@@ -11,55 +11,52 @@ using namespace std;
 int optimal(const vector<int>& pages, int frames) {
   int misses = 0;
   unordered_map<int,int> hist;
-  unordered_map<int,int> last_time_used;
-  for (auto p : pages) {
-    ++hist[p];
-  }
-  auto myGreater = [&](const int a, const int b){
-    return hist[a] > hist[b] ||
-      hist[a] == hist[b] && last_time_used[a] > last_time_used[b];
-  };
-  priority_queue<int, vector<int>, decltype(myGreater)> pq(myGreater);
-  unordered_set<int> s;
+  unordered_map<int,queue<int>> next_use;
   int i = 0;
   for (auto p : pages) {
-    last_time_used[p] = i;
-    if (s.find(p) != s.end()) {
-      --hist[p];
-    } else {
+    ++hist[p];
+    next_use[p].push(i);
+    ++i;
+  }
+  unordered_set<int> s;
+  for (auto p : pages) {
+    next_use[p].pop();
+    --hist[p];
+    if (s.find(p) == s.end()) {
       ++misses;
-      if (pq.size() == frames) {
-        s.erase(pq.top());
-        pq.pop();
+      if (s.size() == frames) {
+        auto to_remove = min_element(s.begin(), s.end(), [&](int a, int b){
+          return hist[a] < hist[b] || 
+            hist[a] == hist[b] && next_use[a] > next_use[b];
+        });
+        s.erase(to_remove);
       }
-      pq.push(p);
       s.insert(p);
     }
-    ++i;
   }
   return misses;
 }
 
 int LRU(const vector<int>& pages, int frames) {
   int misses = 0;
+  unordered_map<int,int> hist;
   unordered_map<int,int> last_time_used;
-  auto myLess = [&](const int a, const int b) {
-    return last_time_used[a] > last_time_used[b];
-  };
-  priority_queue<int, vector<int>, decltype(myLess)> pq(myLess);
+  for (auto p : pages) {
+    ++hist[p];
+  }
   unordered_set<int> s;
   int i = 0;
   for (auto p : pages) {
     last_time_used[p] = i;
-    if (s.find(p) != s.end()) {
-      ;
-    } else {
+    --hist[p];
+    if (s.find(p) == s.end()) {
       ++misses;
-      if (pq.size() == frames) {
-        s.erase(pq.top());
-        pq.pop();
+      if (s.size() == frames) {
+        auto to_remove = min_element(s.begin(), s.end(), [&](int a, int b){
+          return last_time_used[a] < last_time_used[b];
+        });
+        s.erase(to_remove);
       }
-      pq.push(p);
       s.insert(p);
     }
     ++i;
@@ -73,9 +70,7 @@ int FIFO(const vector<int>& pages, int frames) {
   unordered_set<int> s;
   int i = 0;
   for (auto p : pages) {
-    if (s.find(p) != s.end()) {
-      ;
-    } else {
+    if (s.find(p) == s.end()) {
       ++misses;
       if (q.size() == frames) {
         s.erase(q.front());
